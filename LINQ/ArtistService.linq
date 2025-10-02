@@ -26,6 +26,24 @@ void Main()
 {
 	CodeBehind codeBehind = new CodeBehind(this); // “this” is LINQPad’s auto Context
 
+	#region Get Artist (GetArtist)
+	int id = 0;
+	// 	fail
+	//	Rule:  artistID must be valid
+	codeBehind.GetArtist(id);
+	codeBehind.ErrorDetails.Dump($"ArtistID must be valid. Not id {id}");
+
+	//	fail
+	//	if not artist were found with the artist id provided
+	id = 10000;
+	codeBehind.GetArtist(id);
+	codeBehind.ErrorDetails.Dump($"No Artist for ID {id}");
+
+	//	pass
+	id = 1;
+	codeBehind.GetArtist(id);
+	codeBehind.Artist.Dump($"Pass - Valid ID {id}");
+	#endregion
 }
 
 // ———— PART 2: Code Behind → Code Behind Method ————
@@ -53,8 +71,37 @@ public class CodeBehind(TypedDataContext context)
 	// general error message.
 	private string errorMessage = string.Empty;
 	#endregion
-	
-	
+
+	// artist view returned by the service using GetArtist()
+	public ArtistEditView Artist = new();
+
+	//	get artist methods
+	public void GetArtist(int artistID)
+	{
+		//	clear previous error details and messages
+		errorDetails.Clear();
+		errorMessage = string.Empty;
+		feedbackMessage = string.Empty;
+
+		//	wrap the service call in a try/catch to handle unexpected exceptions
+		try
+		{
+			var result = YourService.GetArtist(artistID);
+			if (result.IsSuccess)
+			{
+				Artist = result.Value;
+			}
+			else
+			{
+				errorDetails = GetErrorMessages(result.Errors.ToList());
+			}
+		}
+		catch (Exception ex)
+		{
+			// capture any excetion message for display
+			errorMessage = ex.Message;
+		}
+	}
 
 }
 #endregion
@@ -118,6 +165,37 @@ public class Library
 		return result.WithValue(artist);
 	}
 
+	public Result<List<ArtistEditView>> GetArtists(string name)
+	{
+		//  Create a Result continer that will hold eithe a 
+		//  ArtistEditView object or success or any accumlated errors on failure
+		var result = new Result<List<ArtistEditView>>();
+
+		#region Business Logic and Parameter Exceptions
+		//	Business Rules
+		// 	These are processing rules that need to be satisfied
+		//		for valid data
+		//		Rule:  artist name cannot be empty
+
+
+		if (string.IsNullOrWhiteSpace(name))
+		{
+			result.AddError(new Error("Missing Information", "Please provide a valid artist name"));
+			//	need to exit because we have nothing to search for
+			return result;
+		}
+		#endregion
+
+		//  artist that meet our criteria
+		var artists = _hogWildContext.Artists
+					.Where(a => a.Name.ToUpper().Contains(name.ToUpper()))
+					.Select(a => new ArtistEditView
+					{
+						ArtistID = a.ArtistId,
+						Name = a.Name
+					}).ToList();
+
+	}
 }
 #endregion
 
