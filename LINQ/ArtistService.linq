@@ -44,6 +44,25 @@ void Main()
 	codeBehind.GetArtist(id);
 	codeBehind.Artist.Dump($"Pass - Valid ID {id}");
 	#endregion
+
+	#region Get Artists (GetArtists)
+	string name = string.Empty;
+	// 	fail
+	//	Rule:  name cannot be empty
+	codeBehind.GetArtists(name);
+	codeBehind.ErrorDetails.Dump($"Name must be valid. Name value is '{name}'");
+
+	//	fail
+	//	if no artists were found with the artist name provided
+	name = "abc";
+	codeBehind.GetArtists(name);
+	codeBehind.ErrorDetails.Dump($"No Artists for name '{name}'");
+
+	//	pass
+	name = "abb";
+	codeBehind.GetArtists(name);
+	codeBehind.Artists.Dump($"Pass - Valid name {name}");
+	#endregion
 }
 
 // ———— PART 2: Code Behind → Code Behind Method ————
@@ -74,6 +93,8 @@ public class CodeBehind(TypedDataContext context)
 
 	// artist view returned by the service using GetArtist()
 	public ArtistEditView Artist = new();
+	
+	public List<ArtistEditView> Artists = new();
 
 	//	get artist methods
 	public void GetArtist(int artistID)
@@ -90,6 +111,34 @@ public class CodeBehind(TypedDataContext context)
 			if (result.IsSuccess)
 			{
 				Artist = result.Value;
+			}
+			else
+			{
+				errorDetails = GetErrorMessages(result.Errors.ToList());
+			}
+		}
+		catch (Exception ex)
+		{
+			// capture any excetion message for display
+			errorMessage = ex.Message;
+		}
+	}
+
+	//	get artist methods
+	public void GetArtists(string name)
+	{
+		//	clear previous error details and messages
+		errorDetails.Clear();
+		errorMessage = string.Empty;
+		feedbackMessage = string.Empty;
+
+		//	wrap the service call in a try/catch to handle unexpected exceptions
+		try
+		{
+			var result = YourService.GetArtists(name);
+			if (result.IsSuccess)
+			{
+				Artists = result.Value;
 			}
 			else
 			{
@@ -153,7 +202,7 @@ public class Library
 						Name = a.Name
 					}).FirstOrDefault();
 
-		// if not artist were found with the artist id provied
+		// if no artist were found with the artist id provied
 		if (artist == null)
 		{
 			result.AddError(new Error("No Artist", $"No artist was found for with ID: {artistID}"));
@@ -195,7 +244,20 @@ public class Library
 						Name = a.Name
 					}).ToList();
 
+		// if no artist were found with the artist id provied
+		if (artists.Count() == 0)
+		{
+			result.AddError(new Error("No Artists", $"No artists was found for with the name of: {name}"));
+			//	need to exit because we will not be able to add a empty artist list
+			//	to the result if there are any errors
+			return result;
+		}
+		//	return the result
+		return result.WithValue(artists);
+
 	}
+
+
 }
 #endregion
 
