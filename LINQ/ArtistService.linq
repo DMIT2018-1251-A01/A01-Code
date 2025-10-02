@@ -53,6 +53,8 @@ public class CodeBehind(TypedDataContext context)
 	// general error message.
 	private string errorMessage = string.Empty;
 	#endregion
+	
+	
 
 }
 #endregion
@@ -76,6 +78,45 @@ public class Library
 	}
 	#endregion
 
+	public Result<ArtistEditView> GetArtist(int artistID)
+	{
+		//  Create a Result continer that will hold eithe a 
+		//  ArtistEditView object or success or any accumlated errors on failure
+		var result = new Result<ArtistEditView>();
+
+		#region Business Logic and Parameter Exceptions
+		//	Business Rules
+		// 	These are processing rules that need to be satisfied
+		//		for valid data
+		//		Rule:  artistID must be valid
+
+		if (artistID == 0)
+		{
+			result.AddError(new Error("Missing Information", "Please provide a valid artist ID"));
+			//	need to exit because we have nothing to search for
+			return result;
+		}
+		#endregion
+		//  artist that meet our criteria
+		var artist = _hogWildContext.Artists
+					.Where(a => a.ArtistId == artistID)
+					.Select(a => new ArtistEditView
+					{
+						ArtistID = a.ArtistId,
+						Name = a.Name
+					}).FirstOrDefault();
+
+		// if not artist were found with the artist id provied
+		if (artist == null)
+		{
+			result.AddError(new Error("No Artist", $"No artist was found for with ID: {artistID}"));
+			//	need to exit because we will not be able to add a null artist
+			//	to the result if there are any errors
+			return result;
+		}
+		//	return the result
+		return result.WithValue(artist);
+	}
 
 }
 #endregion
@@ -84,7 +125,11 @@ public class Library
 //	This region includes the view models used to 
 //	represent and structure data for the UI.
 #region View Models
-
+public class ArtistEditView
+{
+	public int ArtistID { get; set; }
+	public string Name { get; set; }
+}
 #endregion
 
 //	This region includes support methods
