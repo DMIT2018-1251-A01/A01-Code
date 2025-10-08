@@ -51,8 +51,38 @@ public class CodeBehind(TypedDataContext context)
 	// collected error details.
 	private List<string> errorDetails = new();
 	// general error message.
-	private string errorMessage = string.Empty;
+	public string errorMessage = string.Empty;
 	#endregion
+
+	//	in your UI, you may need to sway default! with new()
+	public List<CustomerSearchView> Customers { get; set; } = new();
+
+	public void GetCustomers(string lastName, string phone)
+	{
+		// clear the previous error details and messages
+		errorDetails.Clear();
+		errorMessage = string.Empty;
+		feedbackMessage = string.Empty;
+
+		//	wrap the service call in a try/catch to handle unexpected exceptions
+		try
+		{
+			var result = YourService.GetCustomers(lastName, phone);
+			if (result.IsSuccess)
+			{
+				Customers = result.Value;
+			}
+			else
+			{
+				errorDetails = GetErrorMessages(result.Errors.ToList());
+			}
+		}
+		catch (Exception ex)
+		{
+			//	capture any exception message for display
+			errorMessage = ex.Message;
+		}
+	}
 
 }
 #endregion
