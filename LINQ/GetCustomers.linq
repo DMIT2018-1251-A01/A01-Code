@@ -26,6 +26,41 @@ void Main()
 {
 	CodeBehind codeBehind = new CodeBehind(this); // “this” is LINQPad’s auto Context
 
+	#region Get Customers (GetCustomers)
+	string lastName = string.Empty;
+	string phone = string.Empty;
+
+	//	rule:	Both last name and phone number cannot be empty
+	codeBehind.GetCustomers(lastName, phone);
+	codeBehind.ErrorDetails.Dump("Both last name and phone number cannot be empty");
+	
+	//	rule: both the last name and phone must be valid
+	lastName = "zzz";
+	phone = "999999";
+	codeBehind.GetCustomers(lastName, phone);
+	codeBehind.ErrorDetails.Dump($"No customer with last name {lastName} & phone number of {phone}");
+
+	//	rule: both the last name and phone were provided
+	lastName = "s";
+	phone = "558";
+	codeBehind.GetCustomers(lastName, phone);
+	codeBehind.Customers.Dump($"Pass - Valid last name {lastName} & phone number of {phone}");
+	codeBehind.errorMessage.Dump();
+
+	//	rule: last name was provided
+	lastName = "s";
+	phone = string.Empty;
+	codeBehind.GetCustomers(lastName, phone);
+	codeBehind.Customers.Dump($"Pass - Valid last name {lastName}");
+
+	//	rule: phone was provided
+	lastName = string.Empty;
+	phone = "558";
+	codeBehind.GetCustomers(lastName, phone);
+	codeBehind.Customers.Dump($"Pass - Valid phone {phone}");
+
+	#endregion
+
 }
 
 // ———— PART 2: Code Behind → Code Behind Method ————
