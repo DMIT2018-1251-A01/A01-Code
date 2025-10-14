@@ -231,6 +231,48 @@ public class Library
 			return result;
 		}
 		#endregion
+		
+		Customer customer = _hogWildContext.Customers
+								.Where(c => c.CustomerID == editCustomer.CustomerID)
+								.Select(c => c).FirstOrDefault();
+								
+		// if the customer was not found (customerID == 0)
+		//		then we are dealing with a new customer
+		if(customer == null)
+		{
+			customer = new Customer();
+		}
+		
+		//	NOTE:  You do not have to update the promary key "CustomerID"/
+		//			This is true for all primary keys for any record.
+		//			- If this is a new customer. the CustomerID will be "0"
+		//			- If it is an existing customer, there is no need to update it.
+		customer.FirstName = editCustomer.FirstName;
+		customer.LastName = editCustomer.LastName;
+		customer.Address1 = editCustomer.Address1;
+		customer.Address2 = editCustomer.Address2;
+		customer.City = editCustomer.City;
+		customer.ProvStateID = editCustomer.ProvStateID;
+		customer.CountryID = editCustomer.CountryID;
+		customer.PostalCode = editCustomer.PostalCode;
+		customer.Email = editCustomer.Email;
+		customer.Phone = editCustomer.Phone;
+		customer.StatusID = editCustomer.StatusID;
+		customer.RemoveFromViewFlag = editCustomer.RemoveFromViewFlag;
+		
+		//	new customer
+		if(customer.CustomerID == 0)
+		{
+			_hogWildContext.Customers.Add(customer);
+		}
+		else
+		//	existing customer
+		{
+			_hogWildContext.Customers.Update(customer);
+		}
+		
+		
+		
 	}
 }
 #endregion
