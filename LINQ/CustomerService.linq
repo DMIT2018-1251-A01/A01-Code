@@ -96,11 +96,11 @@ void Main()
 		Phone = "7805551212",
 		RemoveFromViewFlag = false
 	};
-	
-	//	get the last two customer recoreds to see if the customer
-	//		has been added
+
+	//	get the last two customer records to use as a 
+	//		comparison after we added the new record
 	Customers.OrderByDescending(c => c.CustomerID).Take(2).Dump();
-	
+
 	//	add the new customer to the database
 	codeBehind.AddEditCustomer(editCustomer);
 	codeBehind.Customer.Dump("New Customer");
@@ -110,9 +110,26 @@ void Main()
 	Customers.OrderByDescending(c => c.CustomerID).Take(2).Dump();
 	#endregion
 
+	#region EditCustomer
+	//	get previous customer
+	editCustomer = codeBehind.Customer;
+	editCustomer.FirstName = GenerateName(6);
+	editCustomer.LastName = GenerateName(9);
+	editCustomer.Address1 = $"{GenerateName(14)} Avenue";
 
+	//	get the last two customer records to use as a 
+	//		comparison after we edit the previous record
+	Customers.OrderByDescending(c => c.CustomerID).Take(2).Dump();
 
+	//	add the new customer to the database
+	codeBehind.AddEditCustomer(editCustomer);
+	codeBehind.Customer.Dump("Edit Customer");
 
+	//	get the last two customer recoreds to see if the customer
+	//		has been edited
+	Customers.OrderByDescending(c => c.CustomerID).Take(2).Dump();
+
+	#endregion
 	#endregion
 }
 
