@@ -28,24 +28,91 @@ using BYSResults;
 void Main()
 {
 	CodeBehind codeBehind = new CodeBehind(this); // “this” is LINQPad’s auto Context
-	
+
 	#region Get Customer (GetCustomer)
+	//	//	Fail
+	//	//	rule: customerID must be valid (greater than zero)
+	//	codeBehind.GetCustomer(0);
+	//	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero");
+	//	
+	//	//	rule: customer ID must be valid (must exist in the table)
+	//	codeBehind.GetCustomer(100000);
+	//	codeBehind.ErrorDetails.Dump("Customer was not found for customer ID: 100000");
+	//
+	//	//	rule: RemoveFromViewFlag must be false (soft delete) - Works on James Database Only
+	//	codeBehind.GetCustomer(2);
+	//	codeBehind.ErrorDetails.Dump("Customer was not found for customer ID: 2 due to soft delete");
+	//
+	//	//	Pass: Valid customer ID
+	//	codeBehind.GetCustomer(1);
+	//	codeBehind.Customer.Dump("Pass - Valid customer ID");
+	#endregion
+
+	#region AddEditCustomer
+	#region AddCustomer
 	//	Fail
-	//	rule: customerID must be valid (greater than zero)
-	codeBehind.GetCustomer(0);
-	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero");
+	//	Rule: Customer cannot be null
+	codeBehind.AddEditCustomer(null);
+	codeBehind.ErrorDetails.Dump("Customer is null");
+
+	//	need to create a customer object
+	CustomerEditView editCustomer = new();
+
+	//	Rule:  Missing the first name, last name, phone number and email are required (no empty or null)
+	codeBehind.AddEditCustomer(editCustomer);
+	codeBehind.ErrorDetails.Dump("Missing required fields");
+
+	//	Rule:	First name, last name and phone number cannot be
+	//				duplicated (found more than once in the database)
+	codeBehind.GetCustomer(1);  //  valid customer
+	editCustomer = codeBehind.Customer;
+
+	//	reset the customer ID to zero so that is is consider a new customer
+	editCustomer.CustomerID = 0;
+	codeBehind.AddEditCustomer(editCustomer);
+	codeBehind.ErrorDetails.Dump("Duplicated customer");
+
+	//	Pass:	Valid new customer
+	string firstName = GenerateName(6);
+	string lastName = GenerateName(9);
+
+	//	minimum data required to create a new customer.
+	//	The lookup have been simplify and should have included the category names
+	editCustomer = new CustomerEditView()
+	{
+		FirstName = firstName,
+		LastName = lastName,
+		Address1 = "My Street",
+		Address2 = "My Street 2",
+		City = "Edmonton",
+		ProvStateID = Lookups.Where(l => l.Name == "Alberta")
+							.Select(l => l.LookupID).FirstOrDefault(),
+		CountryID = Lookups.Where(l => l.Name == "Canada")
+							.Select(l => l.LookupID).FirstOrDefault(),
+		PostalCode = "T1C3T1",
+		StatusID = Lookups.Where(l => l.Name == "Silver")
+							.Select(l => l.LookupID).FirstOrDefault(),
+		Email = $"{firstName}.{lastName}@bb.cc",
+		Phone = "7805551212",
+		RemoveFromViewFlag = false
+	};
 	
-	//	rule: customer ID must be valid (must exist in the table)
-	codeBehind.GetCustomer(100000);
-	codeBehind.ErrorDetails.Dump("Customer was not found for customer ID: 100000");
+	//	get the last two customer recoreds to see if the customer
+	//		has been added
+	Customers.OrderByDescending(c => c.CustomerID).Take(2).Dump();
+	
+	//	add the new customer to the database
+	codeBehind.AddEditCustomer(editCustomer);
+	codeBehind.Customer.Dump("New Customer");
 
-	//	rule: RemoveFromViewFlag must be false (soft delete) - Works on James Database Only
-	codeBehind.GetCustomer(2);
-	codeBehind.ErrorDetails.Dump("Customer was not found for customer ID: 2 due to soft delete");
+	//	get the last two customer recoreds to see if the customer
+	//		has been added
+	Customers.OrderByDescending(c => c.CustomerID).Take(2).Dump();
+	#endregion
 
-	//	Pass: Valid customer ID
-	codeBehind.GetCustomer(1);
-	codeBehind.Customer.Dump("Pass - Valid customer ID");
+
+
+
 	#endregion
 }
 
@@ -76,19 +143,19 @@ public class CodeBehind(TypedDataContext context)
 	#endregion
 
 	public CustomerEditView Customer = default!;
-	
+
 	public void GetCustomer(int customerID)
 	{
 		//	clear previous error details and messages
 		errorDetails.Clear();
 		errorMessage = string.Empty;
 		feedbackMessage = string.Empty;
-		
+
 		//	wrap the service call in a try/catch to handle unexpected exceptions
 		try
 		{
 			var result = YourService.GetCustomer(customerID);
-			if(result.IsSuccess)
+			if (result.IsSuccess)
 			{
 				Customer = result.Value;
 			}
@@ -97,11 +164,38 @@ public class CodeBehind(TypedDataContext context)
 				errorDetails = GetErrorMessages(result.Errors.ToList());
 			}
 		}
-		catch(Exception ex)
+		catch (Exception ex)
 		{
 			//	capture any exception message for display
 			errorMessage = ex.Message;
-		}		
+		}
+	}
+
+	public void AddEditCustomer(CustomerEditView editCustomer)
+	{
+		//	clear previous error details and message
+		errorDetails.Clear();
+		errorMessage = string.Empty;
+		feedbackMessage = string.Empty;
+
+		//	wrap the service call in a try/catch to handle unexpected exceptions
+		try
+		{
+			var result = YourService.AddEditCustomer(editCustomer);
+			if (result.IsSuccess)
+			{
+				Customer = result.Value;
+			}
+			else
+			{
+				errorDetails = GetErrorMessages(result.Errors.ToList());
+			}
+		}
+		catch (Exception ex)
+		{
+			// capture any exception message for display
+			errorMessage = ex.Message;
+		}
 	}
 }
 #endregion
@@ -173,24 +267,24 @@ public class Library
 		//	return the result
 		return result.WithValue(customer);
 	}
-	
+
 	public Result<CustomerEditView> AddEditCustomer(CustomerEditView editCustomer)
 	{
 		//	Create a Result that will hold either a 
 		//	 CustomerEditView object or success or any accumulated errors on failure
 		var result = new Result<CustomerEditView>();
-		
+
 		#region Business Rules
 		//	These are processing rules that need to be satisfied for valid data
 		//	rule:  customer edit view model cannot be null
-		if(editCustomer == null)
+		if (editCustomer == null)
 		{
-			return result.AddError(new Error("Missing Customer", 
-								"No customer was supply"));	
+			return result.AddError(new Error("Missing Customer",
+								"No customer was supply"));
 		}
-		
+
 		//	rule:	first & last name, phone number and email are required (not empty)
-		if(string.IsNullOrWhiteSpace(editCustomer.FirstName))
+		if (string.IsNullOrWhiteSpace(editCustomer.FirstName))
 		{
 			result.AddError(new Error("Missing Information", "First name is required"));
 		}
@@ -211,38 +305,40 @@ public class Library
 		}
 
 		//	rule:  first name, last name and phone number cannot be duplicated (found more than once)
-		if(editCustomer.CustomerID == 0)
+		if (editCustomer.CustomerID == 0 && !string.IsNullOrWhiteSpace(editCustomer.FirstName)
+										 && !string.IsNullOrWhiteSpace(editCustomer.LastName)
+		  								 && !string.IsNullOrWhiteSpace(editCustomer.Phone))
 		{
-			bool customerExist = _hogWildContext.Customers.Any(c  =>
+			bool customerExist = _hogWildContext.Customers.Any(c =>
 								c.FirstName.ToUpper() == editCustomer.FirstName.ToUpper() &&
 								c.LastName.ToUpper() == editCustomer.LastName.ToUpper() &&
 								c.Phone == editCustomer.Phone);
-								
-			if(customerExist)
+
+			if (customerExist)
 			{
-				result.AddError(new Error("Existing Customer Data", 
+				result.AddError(new Error("Existing Customer Data",
 							"Customer already exist in the database and cannot be enter again"));
-			}						
-		}	
-		
+			}
+		}
+
 		//	exit if we have any outstanding errors
 		if (result.IsFailure)
 		{
 			return result;
 		}
 		#endregion
-		
+
 		Customer customer = _hogWildContext.Customers
 								.Where(c => c.CustomerID == editCustomer.CustomerID)
 								.Select(c => c).FirstOrDefault();
-								
+
 		// if the customer was not found (customerID == 0)
 		//		then we are dealing with a new customer
-		if(customer == null)
+		if (customer == null)
 		{
 			customer = new Customer();
 		}
-		
+
 		//	NOTE:  You do not have to update the promary key "CustomerID"/
 		//			This is true for all primary keys for any record.
 		//			- If this is a new customer. the CustomerID will be "0"
@@ -259,9 +355,9 @@ public class Library
 		customer.Phone = editCustomer.Phone;
 		customer.StatusID = editCustomer.StatusID;
 		customer.RemoveFromViewFlag = editCustomer.RemoveFromViewFlag;
-		
+
 		//	new customer
-		if(customer.CustomerID == 0)
+		if (customer.CustomerID == 0)
 		{
 			_hogWildContext.Customers.Add(customer);
 		}
@@ -270,9 +366,24 @@ public class Library
 		{
 			_hogWildContext.Customers.Update(customer);
 		}
-		
-		
-		
+
+		// saving the record (customer)
+		try
+		{
+			//	NOTE:  YOU CAN ONLY HAVE ONE SAVE CHANGES IN A METHOD
+			_hogWildContext.SaveChanges();
+		}
+		catch (Exception ex)
+		{
+			//	Clear changes to maintain data integrity
+			_hogWildContext.ChangeTracker.Clear();
+			//	We do not throw an exception, just need to log the error message
+			result.AddError(new Error("Error Saving Changes", ex.InnerException.Message));
+			//	need to return the result
+			return result;
+		}
+		//	need to refresh the customer information
+		return GetCustomer(customer.CustomerID);
 	}
 }
 #endregion
@@ -320,5 +431,41 @@ public static List<string> GetErrorMessages(List<Error> errorMessage)
 
 	// Return the populated list of error message strings
 	return errorList;
+}
+
+/// <summary>
+/// Generates a random name of a given length.
+/// The generated name follows a pattern of alternating consonants and vowels.
+/// </summary>
+/// <param name="len">The desired length of the generated name.</param>
+/// <returns>A random name of the specified length.</returns>
+public static string GenerateName(int len)
+{
+	// Create a new Random instance.
+	Random r = new Random();
+
+	// Define consonants and vowels to use in the name generation.
+	string[] consonants = { "b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "l", "n", "p", "q", "r", "s", "sh", "zh", "t", "v", "w", "x" };
+	string[] vowels = { "a", "e", "i", "o", "u", "ae", "y" };
+
+	string Name = "";
+
+	// Start the name with an uppercase consonant and a vowel.
+	Name += consonants[r.Next(consonants.Length)].ToUpper();
+	Name += vowels[r.Next(vowels.Length)];
+
+	// Counter for tracking the number of characters added.
+	int b = 2;
+
+	// Add alternating consonants and vowels until we reach the desired length.
+	while (b < len)
+	{
+		Name += consonants[r.Next(consonants.Length)];
+		b++;
+		Name += vowels[r.Next(vowels.Length)];
+		b++;
+	}
+
+	return Name;
 }
 #endregion
