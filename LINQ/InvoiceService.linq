@@ -37,27 +37,41 @@ void Main()
 	//	Rule:	category ID & description must be provided
 	codeBehind.GetParts(0, string.Empty, existingPartIDs);
 	codeBehind.ErrorDetails.Dump("Category ID & description must be provided");
-	
+
 	//	Rule:	No parts found
 	codeBehind.GetParts(0, "zzz", existingPartIDs);
 	codeBehind.ErrorDetails.Dump("No parts were found that contain description 'zzz'");
-	
+
 	//	Pass:	valid part category ID (23 -> Parts)
 	codeBehind.GetParts(23, string.Empty, existingPartIDs);
 	codeBehind.Parts.Dump("Pass - Valid part category ID");
-	
+
 	//	Pass:	valid partial description ("ra")
 	codeBehind.GetParts(0, "ra", existingPartIDs);
 	codeBehind.Parts.Dump("Pass - Valid partial description");
-	
+
 	//	Pass:	Using existing parts ids (cart)
 	//	This will simulate that we have parts on our invoice lines/cart
-	existingPartIDs.Add(27);	//	Brake Oil, pint
-	existingPartIDs.Add(33);	//	Transmission fuild, quart
+	existingPartIDs.Add(27);    //	Brake Oil, pint
+	existingPartIDs.Add(33);    //	Transmission fuild, quart
 	codeBehind.GetParts(0, "ra", existingPartIDs);
 	codeBehind.Parts.Dump("Pass - Valid partial description with existing parts ids");
 	#endregion
 
+	#region GetPart
+	//	Fail
+	//	Rule:  part ID must be greater than zero
+	codeBehind.GetPart(0);
+	codeBehind.ErrorDetails.Dump("Part ID must be greater than zero");
+
+	// Rule:  part ID must valid 
+	codeBehind.GetPart(1000000);
+	codeBehind.ErrorDetails.Dump("No part was found for ID 1000000");
+
+	// Pass:  valid part ID
+	codeBehind.GetPart(52);
+	codeBehind.Part.Dump("Pass - Valid part ID");
+	#endregion
 }
 
 // ———— PART 2: Code Behind → Code Behind Method ————
@@ -90,6 +104,9 @@ public class CodeBehind(TypedDataContext context)
 	//	using GetParts()
 	public List<PartView> Parts = new();
 
+	//	using GetPart
+	public PartView Part = new();
+
 	public void GetParts(int partCategoryID, string description, List<int> existingPartIDs)
 	{
 		//	clear previous error detail and messages
@@ -118,7 +135,32 @@ public class CodeBehind(TypedDataContext context)
 		}
 	}
 
+	public void GetPart(int partID)
+	{
+		// clear previous error details and messages
+		errorDetails.Clear();
+		errorMessage = string.Empty;
+		feedbackMessage = String.Empty;
 
+		// wrap the service call in a try/catch to handle unexpected exceptions
+		try
+		{
+			var result = YourService.GetPart(partID);
+			if (result.IsSuccess)
+			{
+				Part = result.Value;
+			}
+			else
+			{
+				errorDetails = GetErrorMessages(result.Errors.ToList());
+			}
+		}
+		catch (Exception ex)
+		{
+			// capture any exception message for display
+			errorMessage = ex.Message;
+		}
+	}
 
 }
 #endregion
@@ -209,6 +251,52 @@ public class Library
 		//	return the result
 		return result.WithValue(parts);
 	}
+	//	Get the part
+	public Result<PartView> GetPart(int partID)
+	{
+		// Create a Result container that will hold either a
+		//	PartView objects on success or any accumulated errors on failure
+		var result = new Result<PartView>();
+		#region Business Rules
+		//	These are processing rules that need to be satisfied
+		//		rule:	partID must be valid
+		//		rule: 	RemoveFromViewFlag must be false
+		if (partID == 0)
+		{
+			//  need to exit because we have no part information
+			return result.AddError(new Error("Missing Information",
+							"Please provide a valid part id"));
+		}
+		#endregion
+
+		var part = _hogWildContext.Parts
+						.Where(p => (p.PartID == partID
+									 && !p.RemoveFromViewFlag))
+						.Select(p => new PartView
+						{
+							PartID = p.PartID,
+							PartCategoryID = p.PartCategoryID,
+							//  PartCategory is an alias for Lookup
+							CategoryName = p.PartCategory.Name,
+							Description = p.Description,
+							Cost = p.Cost,
+							Price = p.Price,
+							ROL = p.ROL,
+							QOH = p.QOH,
+							Taxable = (bool)p.Taxable,
+							RemoveFromViewFlag = p.RemoveFromViewFlag
+						}).FirstOrDefault();
+
+		//  if no part were found
+		if (part == null)
+		{
+			//  need to exit because we did not find any part
+			return result.AddError(new Error("No part", "No part were found"));
+		}
+
+		//  return the result
+		return result.WithValue(part);
+	}
 
 }
 #endregion
@@ -228,6 +316,34 @@ public class PartView
 	public int ROL { get; set; }
 	public int QOH { get; set; }
 	public bool Taxable { get; set; }
+	public bool RemoveFromViewFlag { get; set; }
+}
+
+public class InvoiceView
+{
+	public int InvoiceID { get; set; }
+	public DateOnly InvoiceDate { get; set; }
+	public int CustomerID { get; set; }
+	public string CustomerName { get; set; }
+	public int EmployeeID { get; set; }
+	public string EmployeeName { get; set; }
+	public decimal SubTotal { get; set; }
+	public decimal Tax { get; set; }
+	public decimal Total => SubTotal + Tax;
+	public List<InvoiceLineView> InvoiceLines { get; set; } = new();
+	public bool RemoveFromViewFlag { get; set; }
+}
+
+public class InvoiceLineView
+{
+	public int InvoiceLineID { get; set; }
+	public int InvoiceID { get; set; }
+	public int PartID { get; set; }
+	public string Description { get; set; }
+	public int Quantity { get; set; }
+	public decimal Price { get; set; }
+	public bool Taxable { get; set; }
+	public decimal ExtendPrice => Price * Quantity;
 	public bool RemoveFromViewFlag { get; set; }
 }
 #endregion
