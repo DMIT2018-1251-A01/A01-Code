@@ -73,23 +73,38 @@ void Main()
 	//	codeBehind.Part.Dump("Pass - Valid part ID");
 	//	#endregion
 
-	#region GetInvoice
+	//	#region GetInvoice
+	//	//	Fail
+	//	//	Rule:	Customer ID must be greater than zero if invoice id is zero
+	//	codeBehind.GetInvoice(0, 0, 1);
+	//	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero if invoice id is zero");
+	//
+	//	//	Rule: Employee ID must be greater than zero
+	//	codeBehind.GetInvoice(0, 1, 0);
+	//	codeBehind.ErrorDetails.Dump("Employee ID must be greater than zero");
+	//
+	//	//	Pass:	New Invoice
+	//	codeBehind.GetInvoice(0, 1, 1);
+	//	codeBehind.Invoice.Dump("Pass - New Invoice");
+	//
+	//	//	Pass: 	Existing Invoice
+	//	codeBehind.GetInvoice(1, 1, 1);
+	//	codeBehind.Invoice.Dump("Pass - Existing Invoice");
+	//	#endregion
+
+	#region GetCustomerInvoices
 	//	Fail
-	//	Rule:	Customer ID must be greater than zero if invoice id is zero
-	codeBehind.GetInvoice(0,0,1);
-	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero if invoice id is zero");
+	//	Rule:	customer id must be greater than zero
+	codeBehind.GetCustomerInvoices(0);
+	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero");
 	
-	//	Rule: Employee ID must be greater than zero
-	codeBehind.GetInvoice(0,1,0);
-	codeBehind.ErrorDetails.Dump("Employee ID must be greater than zero");
+	//	Rule:	customer id must be valid
+	codeBehind.GetCustomerInvoices(1000000);
+	codeBehind.ErrorDetails.Dump("No customer was found for ID 1000000");
 	
-	//	Pass:	New Invoice
-	codeBehind.GetInvoice(0,1,1);
-	codeBehind.Invoice.Dump("Pass - New Invoice");
-	
-	//	Pass: 	Existing Invoice
-	codeBehind.GetInvoice(1,1,1);
-	codeBehind.Invoice.Dump("Pass - Existing Invoice");
+	//	Pass:	valid customer ID
+	codeBehind.GetCustomerInvoices(1);
+	codeBehind.CustomerInvoices.Dump("Pass - Valid customer ID");
 	#endregion
 
 }
@@ -130,6 +145,9 @@ public class CodeBehind(TypedDataContext context)
 	//	invoice view returned by the service
 	//	using both the GetInvoice() & AddEditInvoice()
 	public InvoiceView Invoice = default!;
+
+	//	using GetCustomerInvoices
+	public List<InvoiceView> CustomerInvoices = new();
 
 	public void GetParts(int partCategoryID, string description, List<int> existingPartIDs)
 	{
@@ -200,6 +218,33 @@ public class CodeBehind(TypedDataContext context)
 			if (result.IsSuccess)
 			{
 				Invoice = result.Value;
+			}
+			else
+			{
+				errorDetails = GetErrorMessages(result.Errors.ToList());
+			}
+		}
+		catch (Exception ex)
+		{
+			// capture any exception message for display
+			errorMessage = ex.Message;
+		}
+	}
+
+	public void GetCustomerInvoices(int customerID)
+	{
+		// clear previous error details and messages
+		errorDetails.Clear();
+		errorMessage = string.Empty;
+		feedbackMessage = String.Empty;
+
+		// wrap the service call in a try/catch to handle unexpected exceptions
+		try
+		{
+			var result = YourService.GetCustomerInvoices(customerID);
+			if (result.IsSuccess)
+			{
+				CustomerInvoices = result.Value;
 			}
 			else
 			{
@@ -436,6 +481,44 @@ public class Library
 			return result.AddError(new Error("No Invoce", "No invoice was found"));
 		}
 		return result.WithValue(invoice);
+	}
+
+	public Result<List<InvoiceView>> GetCustomerInvoices(int customerID)
+	{
+		// Create a Result container that will hold either a
+		//	InvoiceView List on success or any accumulated errors on failure
+		var result = new Result<List<InvoiceView>>();
+		#region Business Rules
+		//	These are processing rules that need to be satisfied
+		//		rule:	customerID must be valid
+		//		rule: 	RemoveFromViewFlag must be false
+		if (customerID == 0)
+		{
+			//  need to exit because we have no part information
+			return result.AddError(new Error("Missing Information",
+							"Please provide a valid customer id"));
+		}
+		#endregion
+
+		var customerInvoices = _hogWildContext.Invoices
+								.Where(x => x.CustomerID == customerID && !x.RemoveFromViewFlag)
+								.Select(x => new InvoiceView
+								{
+									InvoiceID = x.InvoiceID,
+									InvoiceDate = x.InvoiceDate,
+									CustomerID = x.CustomerID,
+									SubTotal = x.SubTotal,
+									Tax = x.Tax
+								}).ToList();
+
+		//	if no invoices were found
+		if (customerInvoices == null || customerInvoices.Count() == 0)
+		{
+			//	need to exit because we did not find any invoices
+			return result.AddError(new Error("No Customer Invoices", "No invoices were found"));
+		}
+		//	return the result
+		return result.WithValue(customerInvoices);
 	}
 
 
