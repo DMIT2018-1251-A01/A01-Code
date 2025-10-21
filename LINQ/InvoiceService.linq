@@ -1,13 +1,13 @@
 <Query Kind="Program">
   <Connection>
-    <ID>37a64ce9-5c5f-4d4d-afc7-7324799c8fda</ID>
+    <ID>813ec320-8be0-4b91-8ec8-c1549d53aaea</ID>
     <NamingServiceVersion>2</NamingServiceVersion>
     <Persist>true</Persist>
     <Driver Assembly="(internal)" PublicKeyToken="no-strong-name">LINQPad.Drivers.EFCore.DynamicDriver</Driver>
     <AllowDateOnlyTimeOnly>true</AllowDateOnlyTimeOnly>
     <Server>.</Server>
     <Database>OLTP-DMIT2018</Database>
-    <DisplayName>OLTP-DMIT2018-ENtity</DisplayName>
+    <DisplayName>OLTP-DMIT2018-Entity</DisplayName>
     <DriverData>
       <EncryptSqlTraffic>True</EncryptSqlTraffic>
       <PreserveNumeric1>True</PreserveNumeric1>
@@ -298,6 +298,109 @@ public class Library
 		return result.WithValue(part);
 	}
 
+	public Result<InvoiceView> GetInvoice(int invoiceID, int customerID, int employeeID)
+	{
+		//	Create a result container that will hold either a 
+		//	  InvoiceView object on success or any accumulated errors on failure
+		var result = new Result<InvoiceView>();
+
+		#region Business Rules
+		//	These are processing rules that need to be satisfied 
+		//		for valid data
+		//		rule: customerID must be provided if the invoiceID == 0
+		//		rule: employeeID must be provided
+		if (customerID == 0 && invoiceID == 0)
+		{
+			result.AddError(new Error("Missing Information", "Please provide a customer ID"));
+		}
+
+		if (employeeID == 0)
+		{
+			result.AddError(new Error("Missing Information", "Please provide a employee ID"));
+		}
+
+		//	need to exit because we are missing key data
+		if (result.IsFailure)
+		{
+			return result;
+		}
+		#endregion
+
+		//	Handle buth new and existing invoice
+		//	For a new invoice, the following information is needed
+		//		Customer & EmployeeID
+		//	For a existing invoice, the following information is needed
+		//		Invoice AMD Employee ID (We maybe updating an invoice at a later date
+		//			and we need the current employee who is handling the transaction
+		InvoiceView invoice = null;
+		//	new invoice for a customer
+		if (invoiceID == 0)
+		{
+			invoice = new InvoiceView()
+			{
+				CustomerID = customerID,
+				EmployeeID = employeeID,
+				InvoiceDate = DateOnly.FromDateTime(DateTime.Now)
+			};
+		}
+		else
+		{
+			invoice = _hogWildContext.Invoices
+						.Where(i => i.InvoiceID == invoiceID && !i.RemoveFromViewFlag)
+						.Select(i => new InvoiceView
+						{
+							InvoiceID = i.InvoiceID,
+							InvoiceDate = i.InvoiceDate,
+							CustomerID = i.CustomerID,
+							EmployeeID = i.EmployeeID,
+							SubTotal = i.SubTotal,
+							Tax = i.Tax,
+							RemoveFromViewFlag = i.RemoveFromViewFlag, //  this will always be false
+							InvoiceLines = i.InvoiceLines
+											.Where(il => !il.RemoveFromViewFlag)
+											.Select(il => new InvoiceLineView
+											{
+												InvoiceLineID = il.InvoiceLineID,
+												InvoiceID = il.InvoiceID,
+												PartID = il.PartID,
+												Quantity = il.Quantity,
+												Description = il.Part.Description,
+												Price = il.Part.Price,
+												Taxable = (bool)il.Part.Taxable,
+												RemoveFromViewFlag = il.RemoveFromViewFlag
+											}).ToList()
+						}).FirstOrDefault();
+			customerID = invoice.CustomerID;
+		}
+
+		invoice.CustomerName = GetCustomerFullName(customerID);
+		invoice.EmployeeName = GetEmployeeFullName(employeeID);
+		
+		//	only happen if the invoice was mark as remove
+		if(invoice == null)
+		{
+			//	need to exit because we did not find any invoice
+			return result.AddError(new Error("No Invoce", "No invoice was found"));
+		}
+		return result.WithValue(invoice);		
+	}
+
+
+	//	Get the customer full name
+	public string GetCustomerFullName(int customerID)
+	{
+		return _hogWildContext.Customers
+					.Where(x => x.CustomerID == customerID && !x.RemoveFromViewFlag)
+					.Select(x => $"{x.FirstName} {x.LastName}").FirstOrDefault() ?? string.Empty;
+	}
+
+	//	Get the employee full name
+	public string GetEmployeeFullName(int employeeID)
+	{
+		return _hogWildContext.Employees
+					.Where(x => x.EmployeeID == employeeID && !x.RemoveFromViewFlag)
+					.Select(x => $"{x.FirstName} {x.LastName}").FirstOrDefault() ?? string.Empty;
+	}
 }
 #endregion
 
