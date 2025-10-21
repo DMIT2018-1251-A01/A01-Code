@@ -29,49 +29,69 @@ void Main()
 {
 	CodeBehind codeBehind = new CodeBehind(this); // “this” is LINQPad’s auto Context
 
-	#region GetParts
-	//	create a place holder for existing parts ids
-	List<int> existingPartIDs = new List<int>();
+	//	#region GetParts
+	//	//	create a place holder for existing parts ids
+	//	List<int> existingPartIDs = new List<int>();
+	//
+	//	//	Fail
+	//	//	Rule:	category ID & description must be provided
+	//	codeBehind.GetParts(0, string.Empty, existingPartIDs);
+	//	codeBehind.ErrorDetails.Dump("Category ID & description must be provided");
+	//
+	//	//	Rule:	No parts found
+	//	codeBehind.GetParts(0, "zzz", existingPartIDs);
+	//	codeBehind.ErrorDetails.Dump("No parts were found that contain description 'zzz'");
+	//
+	//	//	Pass:	valid part category ID (23 -> Parts)
+	//	codeBehind.GetParts(23, string.Empty, existingPartIDs);
+	//	codeBehind.Parts.Dump("Pass - Valid part category ID");
+	//
+	//	//	Pass:	valid partial description ("ra")
+	//	codeBehind.GetParts(0, "ra", existingPartIDs);
+	//	codeBehind.Parts.Dump("Pass - Valid partial description");
+	//
+	//	//	Pass:	Using existing parts ids (cart)
+	//	//	This will simulate that we have parts on our invoice lines/cart
+	//	existingPartIDs.Add(27);    //	Brake Oil, pint
+	//	existingPartIDs.Add(33);    //	Transmission fuild, quart
+	//	codeBehind.GetParts(0, "ra", existingPartIDs);
+	//	codeBehind.Parts.Dump("Pass - Valid partial description with existing parts ids");
+	//	#endregion
+	//
+	//	#region GetPart
+	//	//	Fail
+	//	//	Rule:  part ID must be greater than zero
+	//	codeBehind.GetPart(0);
+	//	codeBehind.ErrorDetails.Dump("Part ID must be greater than zero");
+	//
+	//	// Rule:  part ID must valid 
+	//	codeBehind.GetPart(1000000);
+	//	codeBehind.ErrorDetails.Dump("No part was found for ID 1000000");
+	//
+	//	// Pass:  valid part ID
+	//	codeBehind.GetPart(52);
+	//	codeBehind.Part.Dump("Pass - Valid part ID");
+	//	#endregion
 
+	#region GetInvoice
 	//	Fail
-	//	Rule:	category ID & description must be provided
-	codeBehind.GetParts(0, string.Empty, existingPartIDs);
-	codeBehind.ErrorDetails.Dump("Category ID & description must be provided");
-
-	//	Rule:	No parts found
-	codeBehind.GetParts(0, "zzz", existingPartIDs);
-	codeBehind.ErrorDetails.Dump("No parts were found that contain description 'zzz'");
-
-	//	Pass:	valid part category ID (23 -> Parts)
-	codeBehind.GetParts(23, string.Empty, existingPartIDs);
-	codeBehind.Parts.Dump("Pass - Valid part category ID");
-
-	//	Pass:	valid partial description ("ra")
-	codeBehind.GetParts(0, "ra", existingPartIDs);
-	codeBehind.Parts.Dump("Pass - Valid partial description");
-
-	//	Pass:	Using existing parts ids (cart)
-	//	This will simulate that we have parts on our invoice lines/cart
-	existingPartIDs.Add(27);    //	Brake Oil, pint
-	existingPartIDs.Add(33);    //	Transmission fuild, quart
-	codeBehind.GetParts(0, "ra", existingPartIDs);
-	codeBehind.Parts.Dump("Pass - Valid partial description with existing parts ids");
+	//	Rule:	Customer ID must be greater than zero if invoice id is zero
+	codeBehind.GetInvoice(0,0,1);
+	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero if invoice id is zero");
+	
+	//	Rule: Employee ID must be greater than zero
+	codeBehind.GetInvoice(0,1,0);
+	codeBehind.ErrorDetails.Dump("Employee ID must be greater than zero");
+	
+	//	Pass:	New Invoice
+	codeBehind.GetInvoice(0,1,1);
+	codeBehind.Invoice.Dump("Pass - New Invoice");
+	
+	//	Pass: 	Existing Invoice
+	codeBehind.GetInvoice(1,1,1);
+	codeBehind.Invoice.Dump("Pass - Existing Invoice");
 	#endregion
 
-	#region GetPart
-	//	Fail
-	//	Rule:  part ID must be greater than zero
-	codeBehind.GetPart(0);
-	codeBehind.ErrorDetails.Dump("Part ID must be greater than zero");
-
-	// Rule:  part ID must valid 
-	codeBehind.GetPart(1000000);
-	codeBehind.ErrorDetails.Dump("No part was found for ID 1000000");
-
-	// Pass:  valid part ID
-	codeBehind.GetPart(52);
-	codeBehind.Part.Dump("Pass - Valid part ID");
-	#endregion
 }
 
 // ———— PART 2: Code Behind → Code Behind Method ————
@@ -106,6 +126,10 @@ public class CodeBehind(TypedDataContext context)
 
 	//	using GetPart
 	public PartView Part = new();
+
+	//	invoice view returned by the service
+	//	using both the GetInvoice() & AddEditInvoice()
+	public InvoiceView Invoice = default!;
 
 	public void GetParts(int partCategoryID, string description, List<int> existingPartIDs)
 	{
@@ -149,6 +173,33 @@ public class CodeBehind(TypedDataContext context)
 			if (result.IsSuccess)
 			{
 				Part = result.Value;
+			}
+			else
+			{
+				errorDetails = GetErrorMessages(result.Errors.ToList());
+			}
+		}
+		catch (Exception ex)
+		{
+			// capture any exception message for display
+			errorMessage = ex.Message;
+		}
+	}
+
+	public void GetInvoice(int invoiceID, int customerID, int employeeID)
+	{
+		//	clear previous error details and messages
+		errorDetails.Clear();
+		errorMessage = string.Empty;
+		feedbackMessage = string.Empty;
+
+		//	wrap the sesrvice call in a try/catch to handl unexpected exceptions
+		try
+		{
+			var result = YourService.GetInvoice(invoiceID, customerID, employeeID);
+			if (result.IsSuccess)
+			{
+				Invoice = result.Value;
 			}
 			else
 			{
@@ -370,19 +421,21 @@ public class Library
 												RemoveFromViewFlag = il.RemoveFromViewFlag
 											}).ToList()
 						}).FirstOrDefault();
-			customerID = invoice.CustomerID;
 		}
 
-		invoice.CustomerName = GetCustomerFullName(customerID);
-		invoice.EmployeeName = GetEmployeeFullName(employeeID);
-		
+		if (invoice != null)
+		{
+			invoice.CustomerName = GetCustomerFullName(invoice.CustomerID);
+			invoice.EmployeeName = GetEmployeeFullName(invoice.EmployeeID);
+		}
+
 		//	only happen if the invoice was mark as remove
-		if(invoice == null)
+		if (invoice == null)
 		{
 			//	need to exit because we did not find any invoice
 			return result.AddError(new Error("No Invoce", "No invoice was found"));
 		}
-		return result.WithValue(invoice);		
+		return result.WithValue(invoice);
 	}
 
 
