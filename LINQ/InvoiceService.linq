@@ -92,19 +92,94 @@ void Main()
 	//	codeBehind.Invoice.Dump("Pass - Existing Invoice");
 	//	#endregion
 
-	#region GetCustomerInvoices
-	//	Fail
-	//	Rule:	customer id must be greater than zero
-	codeBehind.GetCustomerInvoices(0);
-	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero");
+	//	#region GetCustomerInvoices
+	//	//	Fail
+	//	//	Rule:	customer id must be greater than zero
+	//	codeBehind.GetCustomerInvoices(0);
+	//	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero");
+	//
+	//	//	Rule:	customer id must be valid
+	//	codeBehind.GetCustomerInvoices(1000000);
+	//	codeBehind.ErrorDetails.Dump("No customer was found for ID 1000000");
+	//
+	//	//	Pass:	valid customer ID
+	//	codeBehind.GetCustomerInvoices(1);
+	//	codeBehind.CustomerInvoices.Dump("Pass - Valid customer ID");
+	//	#endregion
 
-	//	Rule:	customer id must be valid
-	codeBehind.GetCustomerInvoices(1000000);
-	codeBehind.ErrorDetails.Dump("No customer was found for ID 1000000");
+	#region Add New Invoice
+	// Fail
+	// invoice cannot be null
+	codeBehind.AddEditInvoice(null);
+	codeBehind.ErrorDetails.Dump("Invoice cannot is null");
 
-	//	Pass:	valid customer ID
-	codeBehind.GetCustomerInvoices(1);
-	codeBehind.CustomerInvoices.Dump("Pass - Valid customer ID");
+	// setup Add Invoice
+	InvoiceView invoiceView = new InvoiceView();
+
+	// rule: customer id must be supply
+	// rule: employee id must be supply    
+	// rule: there must be invoice lines provided
+	codeBehind.AddEditInvoice(invoiceView);
+	codeBehind.ErrorDetails.Dump("Fail - All rules except rules involving invoice lines");
+	
+	//  update missing fields
+	invoiceView.CustomerID = 1;
+	invoiceView.EmployeeID = 1;
+
+	// rule: missing part
+	InvoiceLineView invoiceLineView = new();
+	invoiceView.InvoiceLines.Add(invoiceLineView);
+	codeBehind.AddEditInvoice(invoiceView);
+	codeBehind.ErrorDetails.Dump("Fail - Missing part");
+
+	// rule: price is less than zero
+	// rule: quantity is less than one
+	invoiceView.InvoiceLines[0].PartID = 1;
+	invoiceView.InvoiceLines[0].Price = -1;
+	invoiceView.InvoiceLines[0].Quantity = 0;
+
+	codeBehind.AddEditInvoice(invoiceView);
+	codeBehind.ErrorDetails.Dump("Fail - Part price and quantity");
+
+	// reset invoice line to correct value
+	invoiceView.InvoiceLines[0].Price = 15;
+	invoiceView.InvoiceLines[0].Quantity = 10;
+
+	// rule: duplicated parts	
+	invoiceLineView = new();
+	invoiceLineView.PartID = 1;
+	invoiceLineView.Price = 10;
+	invoiceLineView.Quantity = 4;
+	invoiceView.InvoiceLines.Add(invoiceLineView);
+	codeBehind.AddEditInvoice(invoiceView);
+	codeBehind.ErrorDetails.Dump("Fail - Duplicated parts");
+
+	// Pass:  valid new invoice
+	// update duplicate part to unique part id
+	invoiceView.InvoiceLines[1].PartID = 2;
+	codeBehind.AddEditInvoice(invoiceView);
+	codeBehind.Invoice.Dump("Pass - New invoice");
+
+	// Pass:  edit invoice
+	// get last invoice ID
+	int invoiceID = Invoices.OrderByDescending(i => i.InvoiceID)
+					.Select(i => i.InvoiceID).FirstOrDefault();
+	//  get the last invoice
+	codeBehind.GetInvoice(invoiceID, 0, 1);
+	invoiceView = codeBehind.Invoice;
+	invoiceView.CustomerID = 4; // update customer 
+	invoiceView.EmployeeID = 3; // update employee
+								// update first invoice line quantity
+	invoiceView.InvoiceLines[0].Quantity = 22;
+	//add a new invoice line
+	invoiceLineView = new();
+	invoiceLineView.PartID = 3;
+	invoiceLineView.Price = 88;
+	invoiceLineView.Quantity = 121;
+	invoiceView.InvoiceLines.Add(invoiceLineView);
+	codeBehind.AddEditInvoice(invoiceView);
+	codeBehind.Invoice.Dump("Pass - Updated invoice");
+
 	#endregion
 
 }
@@ -245,6 +320,33 @@ public class CodeBehind(TypedDataContext context)
 			if (result.IsSuccess)
 			{
 				CustomerInvoices = result.Value;
+			}
+			else
+			{
+				errorDetails = GetErrorMessages(result.Errors.ToList());
+			}
+		}
+		catch (Exception ex)
+		{
+			// capture any exception message for display
+			errorMessage = ex.Message;
+		}
+	}
+
+	public void AddEditInvoice(InvoiceView invoice)
+	{
+		// clear previous error details and messages
+		errorDetails.Clear();
+		errorMessage = string.Empty;
+		feedbackMessage = String.Empty;
+
+		// wrap the service call in a try/catch to handle unexpected exceptions
+		try
+		{
+			var result = YourService.AddEditInvoice(invoice);
+			if (result.IsSuccess)
+			{
+				Invoice = result.Value;
 			}
 			else
 			{
@@ -559,16 +661,16 @@ public class Library
 		//	rule:	foreach each invoice line, there must be a part ID
 		//	rule:	foreach each invoice line, price cannot be less than zero
 		//	rule:	foreach each invoice line, quantity cannot be less than one
-		
+
 		foreach (var invoiceLine in invoiceView.InvoiceLines)
 		{
-			if(invoiceLine.PartID == 0)
+			if (invoiceLine.PartID == 0)
 			{
 				//	need to exit because we have no part information to process
-				return result.AddError(new Error("Missing Information", "Missing part ID");
+				return result.AddError(new Error("Missing Information", "Missing part ID"));
 			}
-			
-			if(invoiceLine.Price < 0)
+
+			if (invoiceLine.Price < 0)
 			{
 				string partName = _hogWildContext.Parts
 									.Where(p => p.PartID == invoiceLine.PartID)
@@ -583,11 +685,122 @@ public class Library
 									.Select(p => p.Description).FirstOrDefault();
 				result.AddError(new Error("Invalid Price", $"Part {partName} has a quantity less than one"));
 			}
+
+			// rule:    parts cannot be duplicated on more than one line.
+			List<string> duplicatedParts = invoiceView.InvoiceLines
+											.GroupBy(i => new { i.PartID })
+											.Where(gb => gb.Count() > 1)
+											.OrderBy(gb => gb.Key.PartID)
+											.Select(gb => _hogWildContext.Parts
+														.Where(p => p.PartID == gb.Key.PartID)
+														.Select(p => p.Description)
+														.FirstOrDefault()
+												).ToList();
+			if (duplicatedParts.Count() > 0)
+			{
+				foreach (var partName in duplicatedParts)
+				{
+					result.AddError(new Error("Duplicate Invoice Line Item",
+							$"Part {partName} can only be added to the invoice ines once."));
+				}
+			}
 		}
 
-
-
+		//	exit of we have any outstanding errors
+		if (result.IsFailure)
+		{
+			return result;
+		}
 		#endregion
+
+		//	retrieve the invoice from the database or create a new record/entity if it does not exist
+		Invoice invoice = _hogWildContext.Invoices
+							.Where(i => i.InvoiceID == invoiceView.InvoiceID)
+							.Select(i => i).FirstOrDefault();
+
+		//	if the invoice doesn't exist, initizlize it
+		if (invoice == null)
+		{
+			invoice = new Invoice();
+			//	set the current date for the new invoice
+			invoice.InvoiceDate = DateOnly.FromDateTime(DateTime.Now);
+			invoice.CustomerID = invoiceView.CustomerID;
+		}
+		//	update the invoice properties/fields from the view model
+		invoice.EmployeeID = invoiceView.EmployeeID;
+		invoice.RemoveFromViewFlag = invoiceView.RemoveFromViewFlag;
+		//	reset the subtotal & tax as this will be updated from the invoice lines
+		invoice.SubTotal = 0;
+		invoice.Tax = 0;
+
+		//	process each line item in the invoiceview.InvoiceLines
+		foreach (var invoiceLineView in invoiceView.InvoiceLines)
+		{
+			//	record/entity
+			InvoiceLine invoiceLine = _hogWildContext.InvoiceLines
+										.Where(il => il.InvoiceLineID == invoiceLineView.InvoiceLineID)
+										.Select(il => il).FirstOrDefault();
+
+			//	if the line item does not exist, initialize it
+			if (invoiceLine == null)
+			{
+				invoiceLine = new InvoiceLine();
+				invoiceLine.PartID = invoiceLineView.PartID;
+			}
+
+			//	update the invoice line properties.fields from the view model
+			invoiceLine.Quantity = invoiceLineView.Quantity;
+			invoiceLine.Price = invoiceLineView.Price;
+			invoiceLine.RemoveFromViewFlag = invoiceLineView.RemoveFromViewFlag;
+
+			//	handle new or existing line item
+			if (invoiceLine.InvoiceLineID == 0)
+			{
+				//	add new line item to the invoice entity/record
+				invoice.InvoiceLines.Add(invoiceLine);
+			}
+			else
+			{
+				//	updating the database record with the existing invoiceline entity
+				_hogWildContext.InvoiceLines.Update(invoiceLine);
+			}
+
+			//	need to update sub total and tax if the invoice line item
+			//		is not set to be removed from view
+			if (!invoiceLine.RemoveFromViewFlag)
+			{
+				invoice.SubTotal += invoiceLine.Quantity * invoiceLine.Price;
+				bool isTaxable = _hogWildContext.Parts.Where(p => p.PartID == invoiceLine.PartID)
+									.Select(p => p.Taxable).FirstOrDefault();
+				invoice.Tax += isTaxable ? invoiceLine.Quantity * invoiceLine.Price * 0.05m : 0;
+			}
+		}
+
+		//	if it is a new invoice, add it to the collection
+		if (invoice.InvoiceID == 0)
+		{
+			//	add the invoice to the invoice table
+			_hogWildContext.Invoices.Add(invoice);
+		}
+		else
+		{
+			//	update the invoice in the invoice table
+			_hogWildContext.Invoices.Update(invoice);
+		}
+
+		try
+		{
+			//	NOTE: YOU CAN ONLY HAVE ONE SAVE CHANGES IN A METHOD
+			_hogWildContext.SaveChanges();
+		}
+		catch (Exception ex)
+		{
+			//	clear change to maintain eata integrity
+			_hogWildContext.ChangeTracker.Clear();
+			//	we do not have to throw an exception, just need to log the error message
+			return result.AddError(new Error("Error Saving Changes", ex.InnerException.Message));
+		}
+		return GetInvoice(invoice.InvoiceID, invoice.CustomerID, invoice.EmployeeID);
 	}
 
 
