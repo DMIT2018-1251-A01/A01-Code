@@ -1,13 +1,13 @@
 <Query Kind="Program">
   <Connection>
-    <ID>813ec320-8be0-4b91-8ec8-c1549d53aaea</ID>
+    <ID>37a64ce9-5c5f-4d4d-afc7-7324799c8fda</ID>
     <NamingServiceVersion>2</NamingServiceVersion>
     <Persist>true</Persist>
     <Driver Assembly="(internal)" PublicKeyToken="no-strong-name">LINQPad.Drivers.EFCore.DynamicDriver</Driver>
     <AllowDateOnlyTimeOnly>true</AllowDateOnlyTimeOnly>
     <Server>.</Server>
     <Database>OLTP-DMIT2018</Database>
-    <DisplayName>OLTP-DMIT2018-Entity</DisplayName>
+    <DisplayName>OLTP-DMIT2018-ENtity</DisplayName>
     <DriverData>
       <EncryptSqlTraffic>True</EncryptSqlTraffic>
       <PreserveNumeric1>True</PreserveNumeric1>
@@ -97,11 +97,11 @@ void Main()
 	//	Rule:	customer id must be greater than zero
 	codeBehind.GetCustomerInvoices(0);
 	codeBehind.ErrorDetails.Dump("Customer ID must be greater than zero");
-	
+
 	//	Rule:	customer id must be valid
 	codeBehind.GetCustomerInvoices(1000000);
 	codeBehind.ErrorDetails.Dump("No customer was found for ID 1000000");
-	
+
 	//	Pass:	valid customer ID
 	codeBehind.GetCustomerInvoices(1);
 	codeBehind.CustomerInvoices.Dump("Pass - Valid customer ID");
@@ -520,6 +520,81 @@ public class Library
 		//	return the result
 		return result.WithValue(customerInvoices);
 	}
+
+	//	add edit invoice
+	public Result<InvoiceView> AddEditInvoice(InvoiceView invoiceView)
+	{
+		//	Create a result container that will hold either a 
+		//		invoice view model on success or any accumilated errors on failure
+		var result = new Result<InvoiceView>();
+
+		#region Business Rules
+		//	These are processing rules that need to vbe satisfied
+		//		for valid data
+		//`Rule:	invoice view cannot be null
+		if (invoiceView == null)
+		{
+			//	need to exit because we have no invoice object
+			return result.AddError(new Error("Missing Invoice", "No Invoice was supply"));
+		}
+
+		//	rule:	CustomerID must be supply if invoiceID equal zero
+		if (invoiceView.CustomerID == 0 && invoiceView.InvoiceID == 0)
+		{
+			result.AddError(new Error("Missing Information", "Please provide a valid customer ID"));
+		}
+
+		//	rule:	EmployeeID must be supply
+		if (invoiceView.EmployeeID == 0)
+		{
+			result.AddError(new Error("Missing Information", "Please provide a valid employee ID"));
+		}
+
+		//	rule: there must be invoice lines provided
+		if (invoiceView.InvoiceLines == null || invoiceView.InvoiceLines.Count() == 0)
+		{
+			result.AddError(new Error("Missing Information", "Invoice details are required"));
+		}
+
+		//	rule:	foreach each invoice line, there must be a part ID
+		//	rule:	foreach each invoice line, price cannot be less than zero
+		//	rule:	foreach each invoice line, quantity cannot be less than one
+		
+		foreach (var invoiceLine in invoiceView.InvoiceLines)
+		{
+			if(invoiceLine.PartID == 0)
+			{
+				//	need to exit because we have no part information to process
+				return result.AddError(new Error("Missing Information", "Missing part ID");
+			}
+			
+			if(invoiceLine.Price < 0)
+			{
+				string partName = _hogWildContext.Parts
+									.Where(p => p.PartID == invoiceLine.PartID)
+									.Select(p => p.Description).FirstOrDefault();
+				result.AddError(new Error("Invalid Price", $"Part {partName} has a price less than zero"));
+			}
+
+			if (invoiceLine.Quantity < 1)
+			{
+				string partName = _hogWildContext.Parts
+									.Where(p => p.PartID == invoiceLine.PartID)
+									.Select(p => p.Description).FirstOrDefault();
+				result.AddError(new Error("Invalid Price", $"Part {partName} has a quantity less than one"));
+			}
+		}
+
+
+
+		#endregion
+	}
+
+
+
+
+
+
 
 
 	//	Get the customer full name
