@@ -5,6 +5,9 @@
         #region Fields
         private const string MY_NAME = "James";
         private int oddEvenValue = 0;
+        private string emailText = string.Empty;
+        private string passwordText = string.Empty;
+        private DateTime dateText = DateTime.Today;
         #endregion
 
         #region Properties
