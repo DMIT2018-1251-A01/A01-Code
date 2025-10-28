@@ -8,6 +8,7 @@
         private string emailText = string.Empty;
         private string passwordText = string.Empty;
         private DateTime dateText = DateTime.Today;
+        private string feedback = string.Empty;
         #endregion
 
         #region Properties
@@ -52,6 +53,13 @@
             // Note: Inclusive means that 0 in included as a possibility while
             // exclusive means that 25 is not a possible value that will be generated
             oddEvenValue = rnd.Next(0, 25);
+        }
+
+        //  Method ios called when the user submits the text input to update the resulting feedback
+        private void TextSubmit()
+        {
+            //  Combine the values of emailText, passwordText, and dateText into a feedback message
+            feedback = $"Email: {emailText}; Password: {passwordText}; Date: {dateText.ToString("d")}";
         }
 
 
