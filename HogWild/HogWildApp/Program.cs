@@ -1,5 +1,7 @@
 using HogWildApp.Components;
 using MudBlazor.Services;
+using HogWildSystem;
+using Microsoft.EntityFrameworkCore;
 
 namespace HogWildApp
 {
@@ -12,6 +14,12 @@ namespace HogWildApp
             // Add services to the container.
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+
+
+            //  add our connection string
+            var connectionStringHogWild = builder.Configuration.GetConnectionString("OLTP-DMIT2018");
+            builder.Services.AddBackendDependencies(options => 
+                                    options.UseSqlServer(connectionStringHogWild));
 
             builder.Services.AddMudServices();
 
