@@ -1,7 +1,9 @@
 ﻿using HogWildSystem.BLL;
 using HogWildSystem.ViewModels;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using MudBlazor;
+using System.Globalization;
 using static MudBlazor.Icons;
 
 namespace HogWildApp.Components.Pages.SamplePages
@@ -11,27 +13,26 @@ namespace HogWildApp.Components.Pages.SamplePages
         #region Fields
         private string feedbackMessage = string.Empty;
         private string errorMessage = string.Empty;
-        private bool hasFeedBack => !string.IsNullOrWhiteSpace(feedbackMessage);
+        private bool hasFeedback => !string.IsNullOrWhiteSpace(feedbackMessage);
         private bool hasError => !string.IsNullOrWhiteSpace(errorMessage) || errorDetails.Count() > 0;
-        //  error details
+        //error list
         private List<string> errorDetails = new List<string>();
 
-        //  the customer
+        // customer
         private CustomerEditView customer = new();
-        //  mudform control
+        // mudform control
         private MudForm customerForm = new();
         #endregion
 
-
-        #region Properties
-
+        #region Propertiers
         //  customer service
         [Inject]
         protected CustomerService CustomerService { get; set; } = default!;
 
-        // Customer ID used to create or edit a customer
+        //  Customer ID used to create or edit a customer
         [Parameter]
         public int CustomerID { get; set; } = 0;
+
         #endregion
 
         #region Methods
@@ -39,31 +40,27 @@ namespace HogWildApp.Components.Pages.SamplePages
         protected override async Task OnInitializedAsync()
         {
             await base.OnInitializedAsync();
-            try
-            {
-                //	clear previous error details and messages
-                errorDetails.Clear();
-                errorMessage = string.Empty;
-                feedbackMessage = string.Empty;
 
+            //	clear previous error details and messages
+            errorDetails.Clear();
+            errorMessage = string.Empty;
+            feedbackMessage = string.Empty;
+
+            //  check to see if we are navigation using a valid customer CustomerID
+            //      or are we going to create a new customer
+            if (CustomerID > 0)
+            {
                 //	wrap the service call in a try/catch to handle unexpected exceptions
                 try
                 {
-                    if (CustomerID > 0)
+                    var result = CustomerService.GetCustomer(CustomerID);
+                    if (result.IsSuccess)
                     {
-                        var result = CustomerService.GetCustomer(CustomerID);
-                        if (result.IsSuccess)
-                        {
-                            customer = result.Value;
-                        }
-                        else
-                        {
-                            errorDetails = HogWildHelperClass.GetErrorMessages(result.Errors.ToList());
-                        }
+                        customer = result.Value;
                     }
                     else
                     {
-                        customer = new CustomerEditView();
+                        errorDetails = HogWildHelperClass.GetErrorMessages(result.Errors.ToList());
                     }
                 }
                 catch (Exception ex)
@@ -72,13 +69,15 @@ namespace HogWildApp.Components.Pages.SamplePages
                     errorMessage = ex.Message;
                 }
             }
-            catch (Exception ex)
+            else
             {
-                //	capture any exception message for display
-                errorMessage = ex.Message;
+                customer = new();
             }
-        }
 
+            //  update that data has change
+            StateHasChanged();
+        }
         #endregion
+
     }
 }

@@ -16,7 +16,7 @@ else
     <MudAlert Elevation="2"
               Severity="Severity.Error"
               Dense="true">
-        <MudText Typo="Typo.h3">@errorMessage</MudText>
+        <MudText Typo="Typo.h6">@errorMessage</MudText>
         @foreach (var error in errorDetails)
         {
             <MudText Typo="Typo.body2">@error</MudText>
@@ -24,7 +24,7 @@ else
     </MudAlert>
 }
 
-@if (hasFeedBack)
+@if (hasFeedback)
 {
     <MudAlert Elevation="2"
               Severity="Severity.Info"
@@ -32,3 +32,4 @@ else
         <MudText Typo="Typo.body2">@feedbackMessage</MudText>
     </MudAlert>
 }
+
