@@ -1,13 +1,17 @@
-﻿using HogWildSystem.BLL;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using HogWildSystem.DAL;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using HogWildSystem.BLL;
 
 namespace HogWildSystem
 {
     public static class HogWildExtension
     {
-
         // This is an extension method that extends the IServiceCollection interface.
         // It is typically used in ASP.NET Core applications to configure and register services.
 
@@ -25,7 +29,6 @@ namespace HogWildSystem
             // connection string.
             services.AddDbContext<HogWildContext>(options);
 
-
             //  adding any services that you create in the class library (BLL)
             //  using .AddTransient<t>(...)
             //  working versions
@@ -39,9 +42,6 @@ namespace HogWildSystem
                 return new WorkingVersionsService(context);
             });
 
-            //  adding any services that you create in the class library (BLL)
-            //  using .AddTransient<t>(...)
-            //  working versions
             services.AddTransient<CustomerService>((ServiceProvider) =>
             {
                 //  Retrieve an instance of HogWildContext from the service provider.
@@ -52,5 +52,6 @@ namespace HogWildSystem
                 return new CustomerService(context);
             });
         }
+
     }
 }

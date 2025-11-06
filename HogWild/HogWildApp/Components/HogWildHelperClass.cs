@@ -19,6 +19,5 @@ namespace HogWildApp.Components
             // Return the populated list of error message strings
             return errorList;
         }
-
     }
 }

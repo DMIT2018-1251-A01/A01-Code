@@ -1,4 +1,4 @@
-﻿//#nullable disable
+﻿
 using HogWildSystem.DAL;
 using HogWildSystem.ViewModels;
 
@@ -11,28 +11,28 @@ namespace HogWildSystem.BLL
         private readonly HogWildContext _hogWildContext;
         #endregion
 
-        //  constructor for the WorkingVersionsService class
+        //  constructor for the WorkingVersionsService class.
         internal WorkingVersionsService(HogWildContext hogWildContext)
         {
             //  Initialize the _hogWildContext field with the provided HogWildContext instance.
             _hogWildContext = hogWildContext;
         }
 
-        //  This method retrieves the working version of the resource
-        public WorkingVersionsView? GetWorkingVersion()
+        //  This method retrieves the working version of the resource.
+        public WorkingVersionsView GetWorkingVersion()
         {
             return _hogWildContext.WorkingVersions
-                .Select(w => new WorkingVersionsView
+                .Select(x => new WorkingVersionsView
                     {
-                        VersionId = w.VersionId,
-                        Major = w.Major,
-                        Minor = w.Minor,
-                        Build = w.Build,
-                        Revision = w.Revision,
-                        AsOfDate = w.AsOfDate,
-                        Comments = w.Comments
+                        VersionID = x.VersionId,
+                        Major = x.Major,
+                        Minor = x.Minor,
+                        Build = x.Build,
+                        Revision = x.Revision,
+                        AsOfDate = x.AsOfDate,
+                        Comments = x.Comments
                     }
-                ).FirstOrDefault();// ?? new WorkingVersionsView();
+                ).FirstOrDefault() ?? new WorkingVersionsView();
         }
     }
 }
