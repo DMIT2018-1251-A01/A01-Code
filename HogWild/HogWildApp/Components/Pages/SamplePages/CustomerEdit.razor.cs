@@ -85,10 +85,34 @@ namespace HogWildApp.Components.Pages.SamplePages
             }
 
             #region Lookups
+
+            //  province
             var results = CategoryLookupService.GetLookups("Province");
             if (results.IsSuccess)
             {
                 provinces = results.Value;
+            }
+            else
+            {
+                errorDetails = HogWildHelperClass.GetErrorMessages(results.Errors.ToList());
+            }
+             
+            //  countries
+            results = CategoryLookupService.GetLookups("Country");
+            if (results.IsSuccess)
+            {
+                countries = results.Value;
+            }
+            else
+            {
+                errorDetails = HogWildHelperClass.GetErrorMessages(results.Errors.ToList());
+            }
+
+            //  status lookup
+             results = CategoryLookupService.GetLookups("Customer Status");
+            if (results.IsSuccess)
+            {
+                statusLookups = results.Value;
             }
             else
             {
