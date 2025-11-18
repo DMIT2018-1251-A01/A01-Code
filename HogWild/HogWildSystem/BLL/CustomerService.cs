@@ -1,5 +1,6 @@
 ﻿using BYSResults;
 using HogWildSystem.DAL;
+using HogWildSystem.Entities;
 using HogWildSystem.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -134,6 +135,124 @@ namespace HogWildSystem.BLL
 
             //	return the result
             return result.WithValue(customer);
+        }
+
+        public Result<CustomerEditView> AddEditCustomer(CustomerEditView editCustomer)
+        {
+            //	Create a Result that will hold either a 
+            //	 CustomerEditView object or success or any accumulated errors on failure
+            var result = new Result<CustomerEditView>();
+
+            #region Business Rules
+            //	These are processing rules that need to be satisfied for valid data
+            //	rule:  customer edit view model cannot be null
+            if (editCustomer == null)
+            {
+                return result.AddError(new Error("Missing Customer",
+                                    "No customer was supply"));
+            }
+
+            //	rule:	first & last name, phone number and email are required (not empty)
+            if (string.IsNullOrWhiteSpace(editCustomer.FirstName))
+            {
+                result.AddError(new Error("Missing Information", "First name is required"));
+            }
+
+            if (string.IsNullOrWhiteSpace(editCustomer.LastName))
+            {
+                result.AddError(new Error("Missing Information", "Last name is required"));
+            }
+
+            if (string.IsNullOrWhiteSpace(editCustomer.Phone))
+            {
+                result.AddError(new Error("Missing Information", "Phone number is required"));
+            }
+
+            if (string.IsNullOrWhiteSpace(editCustomer.Email))
+            {
+                result.AddError(new Error("Missing Information", "Email is required"));
+            }
+
+            //	rule:  first name, last name and phone number cannot be duplicated (found more than once)
+            if (editCustomer.CustomerID == 0 && !string.IsNullOrWhiteSpace(editCustomer.FirstName)
+                                             && !string.IsNullOrWhiteSpace(editCustomer.LastName)
+                                               && !string.IsNullOrWhiteSpace(editCustomer.Phone))
+            {
+                bool customerExist = _hogWildContext.Customers.Any(c =>
+                                    c.FirstName.ToUpper() == editCustomer.FirstName.ToUpper() &&
+                                    c.LastName.ToUpper() == editCustomer.LastName.ToUpper() &&
+                                    c.Phone == editCustomer.Phone);
+
+                if (customerExist)
+                {
+                    result.AddError(new Error("Existing Customer Data",
+                                "Customer already exist in the database and cannot be enter again"));
+                }
+            }
+
+            //	exit if we have any outstanding errors
+            if (result.IsFailure)
+            {
+                return result;
+            }
+            #endregion
+
+            Customer customer = _hogWildContext.Customers
+                                    .Where(c => c.CustomerID == editCustomer.CustomerID)
+                                    .Select(c => c).FirstOrDefault();
+
+            // if the customer was not found (customerID == 0)
+            //		then we are dealing with a new customer
+            if (customer == null)
+            {
+                customer = new Customer();
+            }
+
+            //	NOTE:  You do not have to update the promary key "CustomerID"/
+            //			This is true for all primary keys for any record.
+            //			- If this is a new customer. the CustomerID will be "0"
+            //			- If it is an existing customer, there is no need to update it.
+            customer.FirstName = editCustomer.FirstName;
+            customer.LastName = editCustomer.LastName;
+            customer.Address1 = editCustomer.Address1;
+            customer.Address2 = editCustomer.Address2;
+            customer.City = editCustomer.City;
+            customer.ProvStateID = editCustomer.ProvStateID;
+            customer.CountryID = editCustomer.CountryID;
+            customer.PostalCode = editCustomer.PostalCode;
+            customer.Email = editCustomer.Email;
+            customer.Phone = editCustomer.Phone;
+            customer.StatusID = editCustomer.StatusID;
+            customer.RemoveFromViewFlag = editCustomer.RemoveFromViewFlag;
+
+            //	new customer
+            if (customer.CustomerID == 0)
+            {
+                _hogWildContext.Customers.Add(customer);
+            }
+            else
+            //	existing customer
+            {
+                _hogWildContext.Customers.Update(customer);
+            }
+
+            // saving the record (customer)
+            try
+            {
+                //	NOTE:  YOU CAN ONLY HAVE ONE SAVE CHANGES IN A METHOD
+                _hogWildContext.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                //	Clear changes to maintain data integrity
+                _hogWildContext.ChangeTracker.Clear();
+                //	We do not throw an exception, just need to log the error message
+                result.AddError(new Error("Error Saving Changes", ex.InnerException.Message));
+                //	need to return the result
+                return result;
+            }
+            //	need to refresh the customer information
+            return GetCustomer(customer.CustomerID);
         }
     }
 }

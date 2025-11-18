@@ -31,6 +31,15 @@ namespace HogWildApp.Components.Pages.SamplePages
         private MudForm customerForm = new();
         #endregion
 
+        #region
+        //  flag if the form is valid
+        private bool isFormValid = false;
+        //  flag if date has changed
+        private bool hasDataChanged = false;
+        // set text for cancel/close button
+        private string closeButtonText => hasDataChanged ? "Cancel" : "Close";
+        #endregion
+
         #region Propertiers
         //  customer service
         [Inject]
@@ -39,6 +48,13 @@ namespace HogWildApp.Components.Pages.SamplePages
         [Inject]
         protected CategoryLookupService CategoryLookupService { get; set; } = default!;
 
+        [Inject] protected NavigationManager NavigationManager { get; set; } = default!;
+
+        //  inhect the DialogService dependency
+        [Inject]
+        protected IDialogService DialogService { get; set; } = default!;
+
+
         //  Customer ID used to create or edit a customer
         [Parameter]
         public int CustomerID { get; set; } = 0;
@@ -46,7 +62,6 @@ namespace HogWildApp.Components.Pages.SamplePages
         #endregion
 
         #region Methods
-
         protected override async Task OnInitializedAsync()
         {
             await base.OnInitializedAsync();
@@ -96,7 +111,7 @@ namespace HogWildApp.Components.Pages.SamplePages
             {
                 errorDetails = HogWildHelperClass.GetErrorMessages(results.Errors.ToList());
             }
-             
+
             //  countries
             results = CategoryLookupService.GetLookups("Country");
             if (results.IsSuccess)
@@ -109,7 +124,7 @@ namespace HogWildApp.Components.Pages.SamplePages
             }
 
             //  status lookup
-             results = CategoryLookupService.GetLookups("Customer Status");
+            results = CategoryLookupService.GetLookups("Customer Status");
             if (results.IsSuccess)
             {
                 statusLookups = results.Value;
@@ -126,6 +141,61 @@ namespace HogWildApp.Components.Pages.SamplePages
             //  update that data has change
             StateHasChanged();
         }
+
+        // save the customer
+        private void Save()
+        {
+            //	clear previous error details and message
+            errorDetails.Clear();
+            errorMessage = string.Empty;
+            feedbackMessage = string.Empty;
+
+            //	wrap the service call in a try/catch to handle unexpected exceptions
+            try
+            {
+                var result = CustomerService.AddEditCustomer(customer);
+                if (result.IsSuccess)
+                {
+                    customer = result.Value;
+                    feedbackMessage = "Data was successfully saved";
+
+                    //  reset change tracking
+                    hasDataChanged = false;
+                    isFormValid = false;
+                    customerForm.ResetTouched();  // reset the touched
+                }
+                else
+                {
+                    errorDetails = HogWildHelperClass.GetErrorMessages(result.Errors.ToList());
+                }
+            }
+            catch (Exception ex)
+            {
+                // capture any exception message for display
+                errorMessage = ex.Message;
+            }
+        }
+
+        //  cancel/close
+        private async Task Cancel()
+        {
+            if (hasDataChanged)
+            {
+                bool? result = await DialogService.ShowMessageBox("Confirm Cancel",
+                    "Do you wish to close the customer editor?  All unsaved changes will be lost.",
+                    yesText: "Yes", cancelText: "No");
+
+                //  for our result, true means affirmative action (e.g. "Yes")
+                //  null means the user dismissed the dialog (e.g. clicking "no" or closing the dialog).
+                if (result == null)
+                {
+                    return;
+                }
+            }
+            NavigationManager.NavigateTo("/SamplePages/CustomerList");
+        }
+
+
         #endregion
 
     }
